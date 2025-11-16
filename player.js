@@ -9,6 +9,7 @@ let synth = null;
 let loop = null;
 let isInitialized = false;
 let messageCount = 0; // Track all messages received for debugging
+let pendingPattern = null; // Store pattern if received before audio is enabled
 
 /**
  * Initialize the audio engine
@@ -146,12 +147,17 @@ window.addEventListener('message', async (event) => {
     switch (event.data.type) {
         case 'update':
             console.log('[JMON Player] UPDATE: Received pattern update');
-            // Update pattern without stopping playback
+
+            // If audio not initialized yet, store pattern for later
             if (!isInitialized) {
-                console.log('[JMON Player] UPDATE: Initializing player...');
-                await initializePlayer();
+                console.log('[JMON Player] UPDATE: Audio not enabled yet - storing pattern');
+                console.log('[JMON Player] UPDATE: Click anywhere to enable audio and start playback');
+                pendingPattern = event.data.pattern;
+                updateStatus('ready (click to enable audio)');
+                break;
             }
 
+            // Update pattern without stopping playback
             if (session && event.data.pattern) {
                 console.log('[JMON Player] UPDATE: Setting pattern:', event.data.pattern);
                 session.setPattern(event.data.pattern);
@@ -277,8 +283,30 @@ window.addEventListener('load', async () => {
  * Some browsers require user interaction before playing audio
  */
 document.addEventListener('click', async () => {
+    // Hide the overlay
+    const overlay = document.getElementById('audio-enable-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+
+    // Initialize audio on first click
     if (!isInitialized) {
+        console.log('[JMON Player] User clicked - initializing audio...');
         await initializePlayer();
+
+        // Apply pending pattern if one was received before audio was enabled
+        if (pendingPattern) {
+            console.log('[JMON Player] Applying pending pattern...');
+            session.setPattern(pendingPattern);
+
+            if (pendingPattern.tempo) {
+                Tone.Transport.bpm.value = pendingPattern.tempo;
+            }
+
+            updateStatus('running');
+            console.log('[JMON Player] Pending pattern applied, playback started');
+            pendingPattern = null;
+        }
     }
 });
 
