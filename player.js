@@ -1,236 +1,133 @@
-/**
- * JMON Live Player - Persistent Audio Engine
- * Runs continuously and updates patterns via postMessage without interrupting playback
- */
+// player.js — JMON Live Player
 
-// Global player state
-let session = null;
-let synth = null;
-let loop = null;
-let isInitialized = false;
+// --- DOM references ---
+const statusEl = document.getElementById("status");
+const patternLenEl = document.getElementById("pattern-length");
+const playedEl = document.getElementById("events-played");
+const positionEl = document.getElementById("position");
 
-/**
- * Initialize the audio engine
- * This runs once and persists throughout the session
- */
-async function initializePlayer() {
-    console.log('Initializing JMON Live Player...');
+// --- Session + audio state ---
+const session = new Session();
+let synth;
+let part;
 
-    // Create session
-    session = new Session();
-
-    // Create a persistent synth (polyphonic for chord support)
-    synth = new Tone.PolySynth(Tone.Synth, {
-        volume: -8,
-        oscillator: {
-            type: 'triangle'
-        },
-        envelope: {
-            attack: 0.005,
-            decay: 0.1,
-            sustain: 0.3,
-            release: 0.1
-        }
-    }).toDestination();
-
-    // Create persistent loop
-    // This loop runs continuously and calls session.next() to get events
-    loop = new Tone.Loop((time) => {
-        const event = session.next(time);
-
-        if (event) {
-            playEvent(event, time);
-        }
-    }, "16n"); // Default to 16th note subdivision
-
-    // Start Tone.Transport (persistent scheduler)
-    await Tone.start();
-    Tone.Transport.start();
-    loop.start(0);
-
-    isInitialized = true;
-    updateStatus('ready');
-
-    console.log('JMON Live Player initialized and running');
+function setStatus(text) {
+  if (statusEl) {
+    statusEl.textContent = text;
+  }
 }
 
-/**
- * Play a single JMON event
- * @param {Object} event - Event object with pitch, duration, velocity, etc.
- * @param {number} time - Tone.js scheduled time
- */
-function playEvent(event, time) {
-    if (!event || !synth) return;
-
-    // Extract event properties
-    const pitch = event.pitch || event.note || 'C4';
-    const velocity = event.velocity || 0.7;
-
-    // Handle different pitch formats
-    let notes = [];
-    if (Array.isArray(pitch)) {
-        // Array of pitches (chord) - handle both MIDI numbers and note names
-        notes = pitch.map(p => {
-            if (typeof p === 'number') {
-                return Tone.Frequency(p, "midi").toNote();
-            }
-            return p;
-        });
-    } else if (typeof pitch === 'number') {
-        // MIDI note number
-        notes = [Tone.Frequency(pitch, "midi").toNote()];
-    } else {
-        // Note name (e.g., "C4")
-        notes = [pitch];
-    }
-
-    // Parse duration - JMON uses note values like "4n", "8n", or quarter notes
-    let durationValue;
-    if (typeof event.duration === 'string') {
-        // Tone.js notation ("4n", "8t", etc.) or bars:beats:ticks
-        if (event.duration.match(/^\d+(n|t)$/)) {
-            // Note value - Tone.js can handle this directly
-            durationValue = event.duration;
-        } else if (event.duration.includes(':')) {
-            // Bars:beats:ticks - convert to seconds via session
-            const durationQuarterNotes = session.parseDuration(event.duration);
-            durationValue = session.quarterNotesToSeconds(durationQuarterNotes);
-        } else {
-            durationValue = 0.1; // Fallback
-        }
-    } else if (typeof event.duration === 'number') {
-        // Could be quarter notes or seconds - let session decide
-        const durationQuarterNotes = session.parseDuration(event.duration);
-        durationValue = session.quarterNotesToSeconds(durationQuarterNotes);
-    } else {
-        durationValue = 0.1; // Default fallback
-    }
-
-    // Trigger synth
-    try {
-        synth.triggerAttackRelease(notes, durationValue, time, velocity);
-    } catch (error) {
-        console.error('Error playing event:', error, event);
-    }
+function disposePart() {
+  if (part) {
+    part.dispose();
+    part = null;
+  }
 }
 
-/**
- * Update player status in UI
- * @param {string} status - Status message
- */
-function updateStatus(status) {
-    const statusEl = document.getElementById('status');
-    if (statusEl) {
-        statusEl.textContent = status;
-    }
+function updateCounters(nextPosition) {
+  if (playedEl) {
+    playedEl.textContent = session.eventsPlayed;
+  }
+  if (positionEl && typeof nextPosition === "number") {
+    positionEl.textContent = nextPosition;
+  }
 }
 
-/**
- * Handle postMessage from parent (Observable notebook)
- * This is the main interface for receiving pattern updates
- */
-window.addEventListener('message', async (event) => {
-    console.log('Received message:', event.data);
+function buildLoop() {
+  disposePart();
 
-    if (!event.data || !event.data.type) {
-        return;
-    }
+  const patternLength = session.getPatternLength();
+  if (patternLenEl) {
+    patternLenEl.textContent = patternLength;
+  }
 
-    switch (event.data.type) {
-        case 'update':
-            // Update pattern without stopping playback
-            if (!isInitialized) {
-                await initializePlayer();
-            }
+  if (patternLength === 0) {
+    return;
+  }
 
-            if (session && event.data.pattern) {
-                session.setPattern(event.data.pattern);
+  const loopEndQuarterNotes = session.getPatternDuration() || patternLength;
+  const loopEndSeconds = session.quarterNotesToSeconds(loopEndQuarterNotes);
 
-                // Update Tone.Transport tempo if pattern specifies it
-                if (event.data.pattern.tempo) {
-                    Tone.Transport.bpm.value = event.data.pattern.tempo;
-                }
+  part = new Tone.Part((time, event) => {
+    const duration = event.duration || "8n";
+    const velocity = event.velocity ?? 0.8;
+    const nextPosition = (session.position + 1) % patternLength;
 
-                updateStatus('running');
-                console.log('Pattern updated');
-            }
-            break;
+    synth.triggerAttackRelease(event.pitch, duration, time, velocity);
 
-        case 'start':
-            // Initialize and start player
-            if (!isInitialized) {
-                await initializePlayer();
-            }
-            updateStatus('running');
-            break;
+    session.position = nextPosition;
+    session.eventsPlayed += 1;
+    updateCounters(nextPosition);
+  }, session.flattenedNotes.map((evt) => [
+    session.quarterNotesToSeconds(evt.time),
+    evt,
+  ]));
 
-        case 'stop':
-            // Stop playback (but don't destroy audio context)
-            if (loop) {
-                loop.stop();
-            }
-            updateStatus('stopped');
-            break;
-
-        case 'resume':
-            // Resume playback
-            if (loop) {
-                loop.start();
-            }
-            updateStatus('running');
-            break;
-
-        case 'reset':
-            // Reset position but keep playing
-            if (session) {
-                session.reset();
-            }
-            break;
-
-        case 'setTempo':
-            // Update tempo without restarting
-            if (session && event.data.tempo) {
-                session.tempo = event.data.tempo;
-                Tone.Transport.bpm.value = event.data.tempo;
-            }
-            break;
-
-        default:
-            console.warn('Unknown message type:', event.data.type);
-    }
-});
-
-/**
- * Auto-initialize on load
- * This ensures the player is ready to receive messages immediately
- */
-window.addEventListener('load', async () => {
-    console.log('JMON Live Player loaded');
-    updateStatus('ready (waiting for pattern)');
-
-    // Optionally auto-initialize (or wait for first message)
-    // Uncomment the following line to auto-start:
-    // await initializePlayer();
-});
-
-/**
- * Handle user interaction to enable audio
- * Some browsers require user interaction before playing audio
- */
-document.addEventListener('click', async () => {
-    if (!isInitialized) {
-        await initializePlayer();
-    }
-});
-
-// Export for debugging
-if (typeof window !== 'undefined') {
-    window.jmonPlayer = {
-        session,
-        synth,
-        loop,
-        initializePlayer,
-        playEvent,
-        updateStatus
-    };
+  part.loop = true;
+  part.loopEnd = loopEndSeconds;
+  part.start(0);
 }
+
+async function initAudio() {
+  await Tone.start();
+  synth = new Tone.Synth().toDestination();
+  Tone.Transport.start();
+
+  setStatus("ready");
+  window.parent.postMessage({ type: "ready" }, "*");
+}
+
+function applyTempo(newTempo) {
+  session.tempo = newTempo;
+  Tone.Transport.bpm.value = newTempo;
+}
+
+function handleUpdate(pattern) {
+  session.setPattern(pattern);
+  applyTempo(session.tempo);
+  buildLoop();
+  setStatus("ready");
+  window.parent.postMessage({ type: "ready" }, "*");
+}
+
+function handleReset() {
+  session.reset();
+  if (part) {
+    part.stop(0);
+    part.start(0);
+  }
+}
+
+async function handleMessage(event) {
+  const { type } = event.data || {};
+
+  switch (type) {
+    case "update":
+      handleUpdate(event.data.pattern);
+      break;
+    case "start":
+    case "resume":
+      Tone.Transport.start();
+      setStatus("running");
+      break;
+    case "stop":
+      Tone.Transport.stop();
+      setStatus("stopped");
+      break;
+    case "reset":
+      handleReset();
+      setStatus("ready");
+      break;
+    case "setTempo":
+      if (typeof event.data.tempo === "number") {
+        applyTempo(event.data.tempo);
+        buildLoop();
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+initAudio();
+window.addEventListener("message", handleMessage);

@@ -270,14 +270,14 @@ class Session {
     updateUI() {
         if (typeof document !== 'undefined') {
             const patternLengthEl = document.getElementById('pattern-length');
-            const eventsCountEl = document.getElementById('events-count');
+            const eventsPlayedEl = document.getElementById('events-played');
             const positionEl = document.getElementById('position');
 
             if (patternLengthEl) {
                 patternLengthEl.textContent = this.getPatternLength();
             }
-            if (eventsCountEl) {
-                eventsCountEl.textContent = this.eventsPlayed;
+            if (eventsPlayedEl) {
+                eventsPlayedEl.textContent = this.eventsPlayed;
             }
             if (positionEl) {
                 positionEl.textContent = this.position;
