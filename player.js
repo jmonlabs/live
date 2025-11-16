@@ -63,16 +63,19 @@ function playEvent(event, time) {
     if (!event || !synth) return;
 
     // Extract event properties
-    // JMON events typically have: pitch, duration, velocity, etc.
     const pitch = event.pitch || event.note || 'C4';
-    const duration = event.duration || 0.1;
     const velocity = event.velocity || 0.7;
 
     // Handle different pitch formats
     let notes = [];
     if (Array.isArray(pitch)) {
-        // Array of pitches (chord)
-        notes = pitch;
+        // Array of pitches (chord) - handle both MIDI numbers and note names
+        notes = pitch.map(p => {
+            if (typeof p === 'number') {
+                return Tone.Frequency(p, "midi").toNote();
+            }
+            return p;
+        });
     } else if (typeof pitch === 'number') {
         // MIDI note number
         notes = [Tone.Frequency(pitch, "midi").toNote()];
@@ -81,9 +84,31 @@ function playEvent(event, time) {
         notes = [pitch];
     }
 
+    // Parse duration - JMON uses note values like "4n", "8n", or quarter notes
+    let durationValue;
+    if (typeof event.duration === 'string') {
+        // Tone.js notation ("4n", "8t", etc.) or bars:beats:ticks
+        if (event.duration.match(/^\d+(n|t)$/)) {
+            // Note value - Tone.js can handle this directly
+            durationValue = event.duration;
+        } else if (event.duration.includes(':')) {
+            // Bars:beats:ticks - convert to seconds via session
+            const durationQuarterNotes = session.parseDuration(event.duration);
+            durationValue = session.quarterNotesToSeconds(durationQuarterNotes);
+        } else {
+            durationValue = 0.1; // Fallback
+        }
+    } else if (typeof event.duration === 'number') {
+        // Could be quarter notes or seconds - let session decide
+        const durationQuarterNotes = session.parseDuration(event.duration);
+        durationValue = session.quarterNotesToSeconds(durationQuarterNotes);
+    } else {
+        durationValue = 0.1; // Default fallback
+    }
+
     // Trigger synth
     try {
-        synth.triggerAttackRelease(notes, duration, time, velocity);
+        synth.triggerAttackRelease(notes, durationValue, time, velocity);
     } catch (error) {
         console.error('Error playing event:', error, event);
     }
@@ -120,6 +145,12 @@ window.addEventListener('message', async (event) => {
 
             if (session && event.data.pattern) {
                 session.setPattern(event.data.pattern);
+
+                // Update Tone.Transport tempo if pattern specifies it
+                if (event.data.pattern.tempo) {
+                    Tone.Transport.bpm.value = event.data.pattern.tempo;
+                }
+
                 updateStatus('running');
                 console.log('Pattern updated');
             }

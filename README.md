@@ -22,6 +22,10 @@ The JMON Live Player is designed to be embedded in interactive notebooks (Observ
 ├── player.js       # Audio engine and postMessage handler
 ├── session.js      # Pattern session management
 ├── style.css       # Minimal UI styling
+├── examples/       # JMON pattern examples
+│   ├── simple-pattern.json
+│   ├── chord-progression.json
+│   └── multi-track.json
 └── README.md       # This file
 ```
 
@@ -53,15 +57,21 @@ viewof player = html`
 ### 3. Send Pattern Updates
 
 ```javascript
-// Define a JMON pattern
+// Define a JMON pattern (proper JMON format)
 pattern = {
+  format: "jmon",
+  version: "1.0",
   tempo: 120,
-  subdivision: 16,
-  events: [
-    { pitch: "C4", duration: 0.2, velocity: 0.7 },
-    { pitch: "E4", duration: 0.2, velocity: 0.8 },
-    { pitch: "G4", duration: 0.2, velocity: 0.6 },
-    { pitch: "C5", duration: 0.4, velocity: 0.9 }
+  tracks: [
+    {
+      label: "melody",
+      notes: [
+        { pitch: "C4", time: 0, duration: "4n", velocity: 0.7 },
+        { pitch: "E4", time: 1, duration: "4n", velocity: 0.8 },
+        { pitch: "G4", time: 2, duration: "4n", velocity: 0.6 },
+        { pitch: "C5", time: 3, duration: "2n", velocity: 0.9 }
+      ]
+    }
   ]
 }
 
@@ -88,15 +98,22 @@ The player listens for `postMessage` events with the following commands:
 player.contentWindow.postMessage({
   type: "update",
   pattern: {
-    tempo: 120,        // BPM (optional, default: 120)
-    subdivision: 16,   // Subdivision (optional, default: 16)
-    events: [          // Array of events (required)
+    format: "jmon",    // JMON format identifier
+    version: "1.0",    // Schema version
+    tempo: 120,        // BPM (required)
+    tracks: [          // Array of tracks (required)
       {
-        pitch: "C4",       // Note name, MIDI number, or array for chords
-        duration: 0.2,     // Duration in seconds
-        velocity: 0.7      // Velocity (0-1)
-      },
-      // ... more events
+        label: "melody",  // Track name
+        notes: [          // Array of notes
+          {
+            pitch: "C4",      // Note name, MIDI number, or array for chords
+            time: 0,          // Time in quarter notes
+            duration: "4n",   // Duration in note values ("4n", "8n", "2n", etc.)
+            velocity: 0.7     // Velocity (0-1, optional)
+          },
+          // ... more notes
+        ]
+      }
     ]
   }
 }, "*");
@@ -132,20 +149,49 @@ player.contentWindow.postMessage({
 
 ## 🎵 Pattern Format
 
-JMON patterns are simple JavaScript objects:
+JMON follows the official [JMON format specification](https://github.com/jmonlabs/jmon-format):
 
 ```javascript
 {
-  tempo: 120,           // Beats per minute (optional)
-  subdivision: 16,      // Note subdivision (optional)
-  events: [             // Array of musical events
+  format: "jmon",       // Format identifier (required)
+  version: "1.0",       // Schema version (required)
+  tempo: 120,           // Beats per minute (required)
+  timeSignature: "4/4", // Time signature (optional, default: "4/4")
+  tracks: [             // Array of tracks (required)
     {
-      pitch: "C4",      // Note (string, number, or array)
-      duration: 0.2,    // Duration in seconds
-      velocity: 0.7     // Velocity (0-1, optional)
+      label: "melody",  // Track name (required)
+      notes: [          // Array of note events (required)
+        {
+          pitch: "C4",      // Note name, MIDI number, or chord array (required)
+          time: 0,          // Time in quarter notes (required)
+          duration: "4n",   // Duration in note values (required)
+          velocity: 0.7     // Velocity 0-1 (optional, default: 0.7)
+        }
+      ]
     }
   ]
 }
+```
+
+**Note:** The player also supports a simplified legacy format with `events` array for backward compatibility.
+
+### Time and Duration Formats
+
+**Time** (when a note plays):
+```javascript
+time: 0        // Quarter notes (0 = start, 4 = bar 2 in 4/4)
+time: 2.5      // Fractional quarter notes allowed
+time: "1:2:0"  // Bars:beats:ticks (optional display format)
+```
+
+**Duration** (how long a note plays):
+```javascript
+duration: "4n"    // Quarter note
+duration: "8n"    // Eighth note
+duration: "2n"    // Half note
+duration: "16n"   // Sixteenth note
+duration: "8t"    // Eighth note triplet
+duration: "1:0:0" // One bar (in bars:beats:ticks)
 ```
 
 ### Pitch Formats
@@ -154,16 +200,18 @@ The player supports multiple pitch formats:
 
 ```javascript
 // Note names
-{ pitch: "C4" }
-{ pitch: "A#3" }
+pitch: "C4"
+pitch: "A#3"
+pitch: "Gb5"
 
 // MIDI numbers
-{ pitch: 60 }  // C4
-{ pitch: 69 }  // A4
+pitch: 60   // C4
+pitch: 69   // A4
 
-// Chords (arrays)
-{ pitch: ["C4", "E4", "G4"] }
-{ pitch: [60, 64, 67] }
+// Chords (arrays of note names or MIDI numbers)
+pitch: ["C4", "E4", "G4"]      // C major chord
+pitch: [60, 64, 67]            // C major chord (MIDI)
+pitch: ["C4", 64, "G4"]        // Mixed format also works
 ```
 
 ## 🔧 Architecture
@@ -236,21 +284,35 @@ function updatePattern(pattern) {
 
 // Cell 3: Define a pattern
 pattern1 = ({
+  format: "jmon",
+  version: "1.0",
   tempo: 120,
-  events: [
-    { pitch: "C4", duration: 0.2, velocity: 0.7 },
-    { pitch: "E4", duration: 0.2, velocity: 0.8 },
-    { pitch: "G4", duration: 0.2, velocity: 0.6 },
-    { pitch: "C5", duration: 0.4, velocity: 0.9 }
+  tracks: [
+    {
+      label: "melody",
+      notes: [
+        { pitch: "C4", time: 0, duration: "8n", velocity: 0.7 },
+        { pitch: "E4", time: 0.5, duration: "8n", velocity: 0.8 },
+        { pitch: "G4", time: 1, duration: "8n", velocity: 0.6 },
+        { pitch: "C5", time: 1.5, duration: "4n", velocity: 0.9 }
+      ]
+    }
   ]
 })
 
-// Cell 4: Another pattern
+// Cell 4: Another pattern with chords
 pattern2 = ({
+  format: "jmon",
+  version: "1.0",
   tempo: 140,
-  events: [
-    { pitch: ["C4", "E4", "G4"], duration: 0.5, velocity: 0.8 },
-    { pitch: ["D4", "F4", "A4"], duration: 0.5, velocity: 0.7 }
+  tracks: [
+    {
+      label: "chords",
+      notes: [
+        { pitch: ["C4", "E4", "G4"], time: 0, duration: "2n", velocity: 0.8 },
+        { pitch: ["D4", "F4", "A4"], time: 2, duration: "2n", velocity: 0.7 }
+      ]
+    }
   ]
 })
 
@@ -355,24 +417,36 @@ player = JMONPlayer()
 ### Example Usage
 
 ```python
-# Define patterns
+# Define patterns (proper JMON format)
 pattern1 = {
+    "format": "jmon",
+    "version": "1.0",
     "tempo": 120,
-    "subdivision": 16,
-    "events": [
-        {"pitch": "C4", "duration": 0.2, "velocity": 0.7},
-        {"pitch": "E4", "duration": 0.2, "velocity": 0.8},
-        {"pitch": "G4", "duration": 0.2, "velocity": 0.6},
-        {"pitch": "C5", "duration": 0.4, "velocity": 0.9}
+    "tracks": [
+        {
+            "label": "melody",
+            "notes": [
+                {"pitch": "C4", "time": 0, "duration": "8n", "velocity": 0.7},
+                {"pitch": "E4", "time": 0.5, "duration": "8n", "velocity": 0.8},
+                {"pitch": "G4", "time": 1, "duration": "8n", "velocity": 0.6},
+                {"pitch": "C5", "time": 1.5, "duration": "4n", "velocity": 0.9}
+            ]
+        }
     ]
 }
 
 pattern2 = {
+    "format": "jmon",
+    "version": "1.0",
     "tempo": 140,
-    "subdivision": 16,
-    "events": [
-        {"pitch": ["C4", "E4", "G4"], "duration": 0.5, "velocity": 0.8},
-        {"pitch": ["D4", "F4", "A4"], "duration": 0.5, "velocity": 0.7}
+    "tracks": [
+        {
+            "label": "chords",
+            "notes": [
+                {"pitch": ["C4", "E4", "G4"], "time": 0, "duration": "2n", "velocity": 0.8},
+                {"pitch": ["D4", "F4", "A4"], "time": 2, "duration": "2n", "velocity": 0.7}
+            ]
+        }
     ]
 }
 
@@ -428,22 +502,37 @@ display(widgets.VBox([pattern_selector, tempo_slider]))
 ```python
 import random
 
-def generate_random_pattern(num_events=8, tempo=120):
+def generate_random_pattern(num_notes=8, tempo=120):
     """Generate a random JMON pattern"""
-    notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
+    notes_pool = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
+    durations = ["16n", "8n", "4n"]
 
-    events = []
-    for _ in range(num_events):
-        events.append({
-            "pitch": random.choice(notes),
-            "duration": random.choice([0.1, 0.2, 0.3, 0.4]),
+    notes = []
+    current_time = 0
+
+    for _ in range(num_notes):
+        duration = random.choice(durations)
+        notes.append({
+            "pitch": random.choice(notes_pool),
+            "time": current_time,
+            "duration": duration,
             "velocity": random.uniform(0.5, 1.0)
         })
 
+        # Advance time based on duration
+        duration_map = {"16n": 0.25, "8n": 0.5, "4n": 1.0}
+        current_time += duration_map.get(duration, 0.5)
+
     return {
+        "format": "jmon",
+        "version": "1.0",
         "tempo": tempo,
-        "subdivision": 16,
-        "events": events
+        "tracks": [
+            {
+                "label": "random",
+                "notes": notes
+            }
+        ]
     }
 
 # Generate and play random patterns
@@ -474,19 +563,29 @@ def create_arpeggio(root_note="C4", pattern_type="major", tempo=120):
     base_note = note_to_midi[root_note[0]]
     root_midi = base_note + (octave - 4) * 12
 
-    # Create arpeggio events
-    events = []
+    # Create arpeggio notes
+    notes = []
+    current_time = 0
+
     for interval in intervals.get(pattern_type, intervals["major"]):
-        events.append({
+        notes.append({
             "pitch": root_midi + interval,
-            "duration": 0.2,
+            "time": current_time,
+            "duration": "8n",
             "velocity": 0.8
         })
+        current_time += 0.5  # Advance by eighth note (0.5 quarter notes)
 
     return {
+        "format": "jmon",
+        "version": "1.0",
         "tempo": tempo,
-        "subdivision": 16,
-        "events": events
+        "tracks": [
+            {
+                "label": "arpeggio",
+                "notes": notes
+            }
+        ]
     }
 
 # Try different arpeggios
@@ -549,9 +648,18 @@ player.update_pattern(pattern1)
    ```javascript
    // In browser console
    const testPattern = {
-     events: [
-       { pitch: "C4", duration: 0.2, velocity: 0.7 },
-       { pitch: "E4", duration: 0.2, velocity: 0.8 }
+     format: "jmon",
+     version: "1.0",
+     tempo: 120,
+     tracks: [
+       {
+         label: "test",
+         notes: [
+           { pitch: "C4", time: 0, duration: "4n", velocity: 0.7 },
+           { pitch: "E4", time: 1, duration: "4n", velocity: 0.8 },
+           { pitch: "G4", time: 2, duration: "4n", velocity: 0.6 }
+         ]
+       }
      ]
    };
 
@@ -616,13 +724,14 @@ synth.connect(delay);
 
 ## 📚 Resources
 
-- [Tone.js Documentation](https://tonejs.github.io/)
-- [Observable Documentation](https://observablehq.com/@observablehq/documentation)
-- [Jupyter Documentation](https://jupyter.org/documentation)
-- [IPython Display](https://ipython.readthedocs.io/en/stable/api/generated/IPython.display.html)
-- [ipywidgets](https://ipywidgets.readthedocs.io/)
-- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-- [PostMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
+- [JMON Format Specification](https://github.com/jmonlabs/jmon-format) - Official JMON schema and documentation
+- [Tone.js Documentation](https://tonejs.github.io/) - Web Audio framework
+- [Observable Documentation](https://observablehq.com/@observablehq/documentation) - Reactive notebooks
+- [Jupyter Documentation](https://jupyter.org/documentation) - Interactive computing
+- [IPython Display](https://ipython.readthedocs.io/en/stable/api/generated/IPython.display.html) - Display utilities
+- [ipywidgets](https://ipywidgets.readthedocs.io/) - Interactive widgets for Jupyter
+- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) - Browser audio
+- [PostMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) - Cross-frame communication
 
 ## 📄 License
 
