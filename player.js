@@ -179,9 +179,9 @@ window.addEventListener('message', async (event) => {
             // If audio not initialized yet, store pattern for later
             if (!isInitialized) {
                 console.log('[JMON Player] UPDATE: Audio not enabled yet - storing pattern');
-                console.log('[JMON Player] UPDATE: Click anywhere to enable audio and start playback');
+                console.log('[JMON Player] UPDATE: Press Start button to begin playback');
                 pendingPattern = event.data.pattern;
-                updateStatus('ready (click to enable audio)');
+                updateStatus('ready (press Start)');
                 break;
             }
 
@@ -304,6 +304,44 @@ window.addEventListener('load', async () => {
         window.parent.postMessage({ type: 'ready', source: 'jmon-player' }, '*');
     }
 
+    // Wire up start button
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', async () => {
+            console.log('[JMON Player] Start button clicked');
+
+            // Initialize audio if not yet initialized
+            if (!isInitialized) {
+                console.log('[JMON Player] Initializing audio...');
+                await initializePlayer();
+            }
+
+            // Apply pending pattern if one exists
+            if (pendingPattern) {
+                console.log('[JMON Player] Applying pending pattern...');
+                session.setPattern(pendingPattern);
+
+                if (pendingPattern.tempo) {
+                    Tone.Transport.bpm.value = pendingPattern.tempo;
+                }
+
+                schedulePattern();
+                updateStatus('running');
+                console.log('[JMON Player] Pending pattern applied, playback started');
+                pendingPattern = null;
+            } else if (session && session.flattenedNotes && session.flattenedNotes.length > 0) {
+                // Restart current pattern
+                console.log('[JMON Player] Restarting current pattern');
+                Tone.Transport.position = 0;
+                schedulePattern();
+                updateStatus('running');
+            } else {
+                updateStatus('ready (waiting for pattern)');
+                console.log('[JMON Player] No pattern to play');
+            }
+        });
+    }
+
     // Wire up stop button
     const stopBtn = document.getElementById('stop-btn');
     if (stopBtn) {
@@ -324,40 +362,8 @@ window.addEventListener('load', async () => {
             console.log('[JMON Player] Playback stopped and cleared');
         });
     }
-
-    // Optionally auto-initialize (or wait for first message)
-    // Uncomment the following line to auto-start:
-    // await initializePlayer();
 });
 
-/**
- * Handle user interaction to enable audio
- * Some browsers require user interaction before playing audio
- */
-document.addEventListener('click', async () => {
-    // Initialize audio on first click
-    if (!isInitialized) {
-        console.log('[JMON Player] User clicked - initializing audio...');
-        await initializePlayer();
-
-        // Apply pending pattern if one was received before audio was enabled
-        if (pendingPattern) {
-            console.log('[JMON Player] Applying pending pattern...');
-            session.setPattern(pendingPattern);
-
-            if (pendingPattern.tempo) {
-                Tone.Transport.bpm.value = pendingPattern.tempo;
-            }
-
-            // Schedule the pattern
-            schedulePattern();
-
-            updateStatus('running');
-            console.log('[JMON Player] Pending pattern applied, playback started');
-            pendingPattern = null;
-        }
-    }
-});
 
 // Export for debugging
 if (typeof window !== 'undefined') {
