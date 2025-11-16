@@ -6,7 +6,7 @@
 // Global player state
 let session = null;
 let synth = null;
-let loop = null;
+let part = null; // Tone.Part for scheduling looped events
 let isInitialized = false;
 let messageCount = 0; // Track all messages received for debugging
 let pendingPattern = null; // Store pattern if received before audio is enabled
@@ -47,7 +47,7 @@ async function initializePlayer() {
 
 /**
  * Schedule all events from the current pattern
- * Clears previous schedule and reschedules all notes
+ * Uses Tone.Part for looping playback
  */
 function schedulePattern() {
     if (!session || !session.flattenedNotes || session.flattenedNotes.length === 0) {
@@ -55,33 +55,39 @@ function schedulePattern() {
         return;
     }
 
-    // Clear all previously scheduled events on the Transport
-    Tone.Transport.cancel();
+    // Stop and dispose old part if it exists
+    if (part) {
+        part.stop();
+        part.dispose();
+    }
 
     const notes = session.flattenedNotes;
-    const patternDuration = session.quarterNotesToSeconds(session.loopDuration);
+    const patternDuration = session.loopDuration || 4; // Default to 4 quarter notes if not set
 
-    console.log('[JMON Player] Scheduling', notes.length, 'notes, loop duration:', session.loopDuration, 'quarter notes');
+    console.log('[JMON Player] Scheduling', notes.length, 'notes, loop duration:', patternDuration, 'quarter notes');
 
-    // Schedule each note
-    notes.forEach((note, index) => {
-        const noteTime = session.quarterNotesToSeconds(note.time);
+    // Create events array for Tone.Part
+    const events = notes.map(note => ({
+        time: note.time,
+        note: note
+    }));
 
-        // Schedule the note
-        Tone.Transport.schedule((time) => {
-            playEvent(note, time);
-            session.eventsPlayed++;
-            session.updateUI();
-        }, noteTime);
-    });
+    // Create a new Part with the events
+    part = new Tone.Part((time, event) => {
+        playEvent(event.note, time);
+        session.eventsPlayed++;
+        session.updateUI();
+    }, events);
 
-    // Schedule the pattern to loop by rescheduling after it completes
-    if (patternDuration > 0) {
-        Tone.Transport.schedule(() => {
-            console.log('[JMON Player] Pattern loop - rescheduling');
-            schedulePattern();
-        }, patternDuration);
-    }
+    // Set the part to loop
+    part.loop = true;
+    part.loopStart = 0;
+    part.loopEnd = patternDuration;
+
+    // Start the part
+    part.start(0);
+
+    console.log('[JMON Player] Pattern scheduled with Tone.Part, looping every', patternDuration, 'quarter notes');
 }
 
 /**
@@ -348,8 +354,10 @@ window.addEventListener('load', async () => {
         stopBtn.addEventListener('click', () => {
             console.log('[JMON Player] Stop button clicked');
 
-            // Cancel all scheduled events
-            Tone.Transport.cancel();
+            // Stop the part
+            if (part) {
+                part.stop();
+            }
 
             // Reset transport position but keep it running
             Tone.Transport.position = 0;
@@ -359,7 +367,7 @@ window.addEventListener('load', async () => {
             }
 
             updateStatus('stopped');
-            console.log('[JMON Player] Playback stopped and cleared');
+            console.log('[JMON Player] Playback stopped');
         });
     }
 });
@@ -370,6 +378,7 @@ if (typeof window !== 'undefined') {
     window.jmonPlayer = {
         session,
         synth,
+        part,
         isInitialized,
         messageCount,
         initializePlayer,
