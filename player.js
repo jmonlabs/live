@@ -283,12 +283,6 @@ window.addEventListener('load', async () => {
  * Some browsers require user interaction before playing audio
  */
 document.addEventListener('click', async () => {
-    // Hide the overlay
-    const overlay = document.getElementById('audio-enable-overlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
-
     // Initialize audio on first click
     if (!isInitialized) {
         console.log('[JMON Player] User clicked - initializing audio...');
