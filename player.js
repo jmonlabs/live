@@ -8,6 +8,7 @@ let session = null;
 let synth = null;
 let loop = null;
 let isInitialized = false;
+let messageCount = 0; // Track all messages received for debugging
 
 /**
  * Initialize the audio engine
@@ -130,29 +131,42 @@ function updateStatus(status) {
  * This is the main interface for receiving pattern updates
  */
 window.addEventListener('message', async (event) => {
-    console.log('Received message:', event.data);
+    messageCount++;
+    console.log(`[JMON Player] Message #${messageCount} received from origin:`, event.origin);
+    console.log('[JMON Player] Message data:', event.data);
+    console.log('[JMON Player] Message source:', event.source ? 'present' : 'null');
 
     if (!event.data || !event.data.type) {
+        console.warn('[JMON Player] Message ignored - no data.type field');
         return;
     }
 
+    console.log('[JMON Player] Processing message type:', event.data.type);
+
     switch (event.data.type) {
         case 'update':
+            console.log('[JMON Player] UPDATE: Received pattern update');
             // Update pattern without stopping playback
             if (!isInitialized) {
+                console.log('[JMON Player] UPDATE: Initializing player...');
                 await initializePlayer();
             }
 
             if (session && event.data.pattern) {
+                console.log('[JMON Player] UPDATE: Setting pattern:', event.data.pattern);
                 session.setPattern(event.data.pattern);
 
                 // Update Tone.Transport tempo if pattern specifies it
                 if (event.data.pattern.tempo) {
+                    console.log('[JMON Player] UPDATE: Setting tempo to', event.data.pattern.tempo);
                     Tone.Transport.bpm.value = event.data.pattern.tempo;
                 }
 
                 updateStatus('running');
-                console.log('Pattern updated');
+                console.log('[JMON Player] UPDATE: Pattern updated successfully');
+                console.log('[JMON Player] UPDATE: Pattern length:', session.events.length, 'events');
+            } else {
+                console.warn('[JMON Player] UPDATE: Cannot set pattern - session:', session ? 'exists' : 'null', 'pattern:', event.data.pattern ? 'exists' : 'missing');
             }
             break;
 
@@ -201,11 +215,49 @@ window.addEventListener('message', async (event) => {
 });
 
 /**
+ * Global test function - can be called from console or parent
+ * Usage: window.testJMONPlayer()
+ */
+window.testJMONPlayer = async function() {
+    console.log('[JMON Player] TEST: Running test function...');
+    console.log('[JMON Player] TEST: Initialized?', isInitialized);
+    console.log('[JMON Player] TEST: Session?', session ? 'exists' : 'null');
+    console.log('[JMON Player] TEST: Messages received:', messageCount);
+
+    // Test pattern
+    const testPattern = {
+        format: "jmon",
+        version: "1.0",
+        tempo: 120,
+        tracks: [{
+            label: "test",
+            notes: [
+                { pitch: 60, time: 0, duration: "4n", velocity: 0.9 },
+                { pitch: 64, time: 1, duration: "4n", velocity: 0.9 },
+                { pitch: 67, time: 2, duration: "4n", velocity: 0.9 }
+            ]
+        }]
+    };
+
+    // Trigger via message handler
+    window.postMessage({ type: 'update', pattern: testPattern }, '*');
+    console.log('[JMON Player] TEST: Posted test pattern via postMessage');
+
+    return 'Test message sent - check console logs';
+};
+
+/**
  * Auto-initialize on load
  * This ensures the player is ready to receive messages immediately
  */
 window.addEventListener('load', async () => {
-    console.log('JMON Live Player loaded');
+    console.log('[JMON Player] ========================================');
+    console.log('[JMON Player] JMON Live Player loaded');
+    console.log('[JMON Player] URL:', window.location.href);
+    console.log('[JMON Player] Parent origin:', document.referrer || 'no referrer');
+    console.log('[JMON Player] Waiting for postMessage commands...');
+    console.log('[JMON Player] Test function available: window.testJMONPlayer()');
+    console.log('[JMON Player] ========================================');
     updateStatus('ready (waiting for pattern)');
 
     // Optionally auto-initialize (or wait for first message)
@@ -229,8 +281,11 @@ if (typeof window !== 'undefined') {
         session,
         synth,
         loop,
+        isInitialized,
+        messageCount,
         initializePlayer,
         playEvent,
-        updateStatus
+        updateStatus,
+        test: window.testJMONPlayer
     };
 }

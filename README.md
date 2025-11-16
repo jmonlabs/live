@@ -707,20 +707,66 @@ synth.connect(delay);
 
 ## 🐛 Troubleshooting
 
+### Debug Mode
+
+The player includes verbose logging to help diagnose issues. Open the browser console to see detailed logs:
+
+```
+[JMON Player] Message #1 received from origin: https://observablehq.com
+[JMON Player] Message data: {type: "update", pattern: {...}}
+[JMON Player] Processing message type: update
+[JMON Player] UPDATE: Pattern updated successfully
+```
+
+### Built-in Test Function
+
+Test the player directly from the browser console:
+
+```javascript
+// In the player iframe's console:
+window.testJMONPlayer()
+
+// Or from the parent window:
+document.querySelector('iframe').contentWindow.testJMONPlayer()
+```
+
+This will send a test pattern and log diagnostic information including:
+- Initialization status
+- Session state
+- Message count
+- Pattern processing
+
+### Common Issues
+
 **No sound?**
 - Click anywhere on the page to enable audio (browser autoplay policy)
 - Check browser console for errors
 - Verify Tone.js loaded correctly
+- Run `window.testJMONPlayer()` to test audio
 
-**Pattern not updating?**
-- Check console logs
-- Verify pattern format
-- Ensure iframe is fully loaded
+**Pattern not updating (Observable)?**
+- Open browser console and check for `[JMON Player]` logs
+- Verify messages are being received (check message count)
+- Ensure `postMessage` uses the iframe's `contentWindow`
+- Check that the pattern object has correct JMON format
+- Try calling `player.contentWindow.testJMONPlayer()` from Observable
+
+**Pattern not updating (Jupyter)?**
+- Ensure the iframe has loaded completely before sending messages
+- Use `time.sleep(2)` after displaying the iframe
+- Check browser console for errors
+- Verify the pattern JSON is valid
 
 **Audio stuttering?**
 - Check CPU usage
 - Reduce pattern complexity
 - Increase buffer size in Tone.js
+
+**postMessage not working?**
+- Verify iframe origin matches expected domain
+- Check browser console for CORS or CSP errors
+- Ensure iframe is fully loaded before sending messages
+- Use the wildcard origin `"*"` for testing: `postMessage(data, "*")`
 
 ## 📚 Resources
 
