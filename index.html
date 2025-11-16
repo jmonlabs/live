@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JMON Live Player</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Tone.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <!-- JMON Algo - will be loaded via CDN or bundled -->
+    <!-- For now, we'll include a placeholder for jmon-algo -->
+    <!-- In production, this would be: <script src="https://unpkg.com/jmon-algo@latest/dist/jmon-algo.js"></script> -->
+</head>
+<body>
+    <div class="container">
+        <h1>JMON LIVE PLAYER</h1>
+        <div class="status-panel">
+            <div class="status-item">
+                <span class="label">Status:</span>
+                <span id="status" class="value">initializing...</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Pattern length:</span>
+                <span id="pattern-length" class="value">0</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Events played:</span>
+                <span id="events-count" class="value">0</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Position:</span>
+                <span id="position" class="value">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core modules -->
+    <script src="session.js"></script>
+    <script src="player.js"></script>
+</body>
+</html>
