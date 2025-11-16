@@ -42,11 +42,11 @@ Host these files on any static web server:
 ### 2. Embed in Observable
 
 ```javascript
-// Create the iframe player
+// Cell 1: Create the iframe player
 viewof player = html`
   <iframe
     id="jmonPlayer"
-    src="https://your-username.github.io/jmon-live-player/index.html"
+    src="https://jmonlabs.github.io/live/index.html"
     width="600"
     height="200"
     style="border: 2px solid #00ff00; border-radius: 8px;"
@@ -54,11 +54,24 @@ viewof player = html`
 `
 ```
 
+```javascript
+// Cell 2: Wait for player to be ready (IMPORTANT!)
+ready = new Promise(resolve => {
+  window.addEventListener("message", (event) => {
+    if (event.data.type === "ready" && event.data.source === "jmon-player") {
+      resolve("Player ready");
+    }
+  });
+});
+
+await ready;
+```
+
 ### 3. Send Pattern Updates
 
 ```javascript
-// Define a JMON pattern (proper JMON format)
-pattern = {
+// Cell 3: Define a JMON pattern (proper JMON format)
+testPattern = {
   format: "jmon",
   version: "1.0",
   tempo: 120,
@@ -66,25 +79,26 @@ pattern = {
     {
       label: "melody",
       notes: [
-        { pitch: "C4", time: 0, duration: "4n", velocity: 0.7 },
-        { pitch: "E4", time: 1, duration: "4n", velocity: 0.8 },
-        { pitch: "G4", time: 2, duration: "4n", velocity: 0.6 },
-        { pitch: "C5", time: 3, duration: "2n", velocity: 0.9 }
+        { pitch: 60, time: 0, duration: "4n", velocity: 0.7 },
+        { pitch: 64, time: 1, duration: "4n", velocity: 0.8 },
+        { pitch: 67, time: 2, duration: "4n", velocity: 0.6 },
+        { pitch: 72, time: 3, duration: "2n", velocity: 0.9 }
       ]
     }
   ]
 }
+```
 
-// Send pattern to player
-function updatePattern(newPattern) {
+```javascript
+// Cell 4: Send pattern to player
+{
   player.contentWindow.postMessage({
     type: "update",
-    pattern: newPattern
+    pattern: testPattern
   }, "*");
-}
 
-// Update the player
-updatePattern(pattern);
+  return "Pattern sent! Check player UI and browser console.";
+}
 ```
 
 ## 📡 API Reference

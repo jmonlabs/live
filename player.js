@@ -260,6 +260,13 @@ window.addEventListener('load', async () => {
     console.log('[JMON Player] ========================================');
     updateStatus('ready (waiting for pattern)');
 
+    // Send ready signal to parent window (Observable/Jupyter)
+    // This allows the parent to wait for the iframe to be ready before sending patterns
+    if (window.parent && window.parent !== window) {
+        console.log('[JMON Player] Sending ready signal to parent...');
+        window.parent.postMessage({ type: 'ready', source: 'jmon-player' }, '*');
+    }
+
     // Optionally auto-initialize (or wait for first message)
     // Uncomment the following line to auto-start:
     // await initializePlayer();
