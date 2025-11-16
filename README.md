@@ -54,6 +54,32 @@ viewof player = html`
 `
 ```
 
+#### Observable ready + update example
+
+```js
+viewof player = html`<iframe 
+  src="https://jmonlabs.github.io/live/index.html"
+  width="938" 
+  height="260"
+  style="border-radius: 8px;"
+></iframe>`
+
+ready = new Promise(resolve => {
+  window.addEventListener("message", (event) => {
+    if (event.data.type === "ready") resolve("Player ready");
+  });
+});
+
+await ready;
+
+player.contentWindow.postMessage({
+  type: "update",
+  pattern: testPattern
+}, "*");
+
+"Pattern sent!"
+```
+
 ### 3. Send Pattern Updates
 
 ```javascript
