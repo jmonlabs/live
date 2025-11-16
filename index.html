@@ -14,21 +14,14 @@
     <!-- In production, this would be: <script src="https://unpkg.com/jmon-algo@latest/dist/jmon-algo.js"></script> -->
 </head>
 <body>
-    <div class="container">
-        <h1>JMON LIVE PLAYER</h1>
-
-        <div class="controls">
-            <button id="start-btn">Start</button>
-            <button id="stop-btn">Stop</button>
-        </div>
-
-        <div class="status-panel">
-            <div class="status-item">Status: <span id="status">initializing...</span></div>
-            <div class="status-item">Length: <span id="pattern-length">0</span></div>
-            <div class="status-item">Played: <span id="events-count">0</span></div>
-            <div class="status-item">Position: <span id="position">0</span></div>
-        </div>
-    </div>
+    <h1>JMON LIVE PLAYER</h1>
+    <button id="start-btn">Start</button>
+    <button id="stop-btn">Stop</button>
+    <br>
+    Status: <span id="status">initializing...</span><br>
+    Length: <span id="pattern-length">0</span><br>
+    Played: <span id="events-count">0</span><br>
+    Position: <span id="position">0</span>
 
     <!-- Core modules -->
     <script src="session.js"></script>
