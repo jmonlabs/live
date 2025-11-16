@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JMON Live · Real-time Music Playground</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>JMON Live</h1>
+            <p class="subtitle">Real-time algorithmic music exploration</p>
+        </header>
+
+        <main>
+            <!-- Transport Controls -->
+            <section class="transport">
+                <button id="startBtn" class="btn-primary">Start</button>
+                <button id="stopBtn" class="btn-secondary" disabled>Stop</button>
+                <button id="rerollBtn" class="btn-secondary">Reroll</button>
+                <button id="muteBtn" class="btn-secondary">Mute</button>
+            </section>
+
+            <!-- Pattern Selection -->
+            <section class="control-group">
+                <h2>Pattern</h2>
+                <div class="control">
+                    <label for="patternSelect">Type</label>
+                    <select id="patternSelect">
+                        <option value="arpeggio">Arpeggio</option>
+                        <option value="random">Random Walk</option>
+                        <option value="euclidean">Euclidean Rhythm</option>
+                        <option value="pentatonic">Pentatonic Flow</option>
+                        <option value="ambient">Ambient Drift</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Live Parameters -->
+            <section class="control-group">
+                <h2>Parameters</h2>
+
+                <div class="control">
+                    <label for="densitySlider">
+                        Density
+                        <span class="value" id="densityValue">0.50</span>
+                    </label>
+                    <input type="range" id="densitySlider" min="0" max="1" step="0.01" value="0.5">
+                </div>
+
+                <div class="control">
+                    <label for="pitchShiftSlider">
+                        Pitch Shift
+                        <span class="value" id="pitchShiftValue">0</span>
+                    </label>
+                    <input type="range" id="pitchShiftSlider" min="-24" max="24" step="1" value="0">
+                </div>
+
+                <div class="control">
+                    <label for="durationScaleSlider">
+                        Duration Scale
+                        <span class="value" id="durationScaleValue">1.00</span>
+                    </label>
+                    <input type="range" id="durationScaleSlider" min="0.25" max="4" step="0.05" value="1">
+                </div>
+
+                <div class="control">
+                    <label for="randomnessSlider">
+                        Randomness
+                        <span class="value" id="randomnessValue">0.20</span>
+                    </label>
+                    <input type="range" id="randomnessSlider" min="0" max="1" step="0.01" value="0.2">
+                </div>
+
+                <div class="control">
+                    <label for="tempoSlider">
+                        Tempo
+                        <span class="value" id="tempoValue">120</span>
+                    </label>
+                    <input type="range" id="tempoSlider" min="40" max="200" step="1" value="120">
+                </div>
+
+                <div class="control">
+                    <label for="lengthSlider">
+                        Pattern Length
+                        <span class="value" id="lengthValue">8</span>
+                    </label>
+                    <input type="range" id="lengthSlider" min="2" max="32" step="1" value="8">
+                </div>
+            </section>
+
+            <!-- Sound Controls -->
+            <section class="control-group">
+                <h2>Sound</h2>
+
+                <div class="control">
+                    <label for="volumeSlider">
+                        Volume
+                        <span class="value" id="volumeValue">-12 dB</span>
+                    </label>
+                    <input type="range" id="volumeSlider" min="-40" max="0" step="1" value="-12">
+                </div>
+
+                <div class="control">
+                    <label for="synthSelect">Synth Type</label>
+                    <select id="synthSelect">
+                        <option value="synth">Simple Synth</option>
+                        <option value="amsynth">AM Synth</option>
+                        <option value="fmsynth">FM Synth</option>
+                        <option value="pluck">Pluck</option>
+                        <option value="membrane">Membrane</option>
+                    </select>
+                </div>
+
+                <div class="control">
+                    <label for="reverbSlider">
+                        Reverb
+                        <span class="value" id="reverbValue">0.30</span>
+                    </label>
+                    <input type="range" id="reverbSlider" min="0" max="1" step="0.01" value="0.3">
+                </div>
+            </section>
+
+            <!-- Status Display -->
+            <section class="status">
+                <div class="status-item">
+                    <span class="status-label">Playing:</span>
+                    <span id="currentNote">—</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Step:</span>
+                    <span id="stepCounter">0</span>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>
+                A minimal instrument for exploring JMON interactively ·
+                <a href="https://github.com/jmonlabs" target="_blank">JMON Labs</a>
+            </p>
+        </footer>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
