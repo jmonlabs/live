@@ -6,128 +6,91 @@ const patternLenEl = document.getElementById("pattern-length");
 const playedEl = document.getElementById("events-played");
 const positionEl = document.getElementById("position");
 
-// --- Session + audio state ---
+// --- Session class to track pattern + playback state ---
+class Session {
+  constructor() {
+    this.pattern = null;
+    this.events = [];
+    this.position = 0;
+    this.eventsPlayed = 0;
+  }
+
+  setPattern(pattern) {
+    console.log("🔄 Received new pattern:", pattern);
+
+    // Flatten pattern to an event array
+    this.pattern = pattern;
+    this.events = this.extractEvents(pattern);
+    this.position = 0;
+    this.eventsPlayed = 0;
+
+    patternLenEl.textContent = this.events.length;
+  }
+
+  extractEvents(jmon) {
+    if (!jmon || !jmon.tracks) return [];
+
+    return jmon.tracks.flatMap(track => {
+      return track.notes.map(n => ({
+        pitch: n.pitch,
+        time: n.time,
+        duration: n.duration,
+        velocity: n.velocity ?? 0.8
+      }));
+    });
+  }
+
+  nextEvent() {
+    if (this.events.length === 0) return null;
+    const evt = this.events[this.position];
+
+    this.position = (this.position + 1) % this.events.length;
+    this.eventsPlayed++;
+    return evt;
+  }
+}
+
 const session = new Session();
+
+// --- Create Tone synth ---
 let synth;
-let part;
 
-function setStatus(text) {
-  if (statusEl) {
-    statusEl.textContent = text;
-  }
-}
-
-function disposePart() {
-  if (part) {
-    part.dispose();
-    part = null;
-  }
-}
-
-function updateCounters(nextPosition) {
-  if (playedEl) {
-    playedEl.textContent = session.eventsPlayed;
-  }
-  if (positionEl && typeof nextPosition === "number") {
-    positionEl.textContent = nextPosition;
-  }
-}
-
-function buildLoop() {
-  disposePart();
-
-  const patternLength = session.getPatternLength();
-  if (patternLenEl) {
-    patternLenEl.textContent = patternLength;
-  }
-
-  if (patternLength === 0) {
-    return;
-  }
-
-  const loopEndQuarterNotes = session.getPatternDuration() || patternLength;
-  const loopEndSeconds = session.quarterNotesToSeconds(loopEndQuarterNotes);
-
-  part = new Tone.Part((time, event) => {
-    const duration = event.duration || "8n";
-    const velocity = event.velocity ?? 0.8;
-    const nextPosition = (session.position + 1) % patternLength;
-
-    synth.triggerAttackRelease(event.pitch, duration, time, velocity);
-
-    session.position = nextPosition;
-    session.eventsPlayed += 1;
-    updateCounters(nextPosition);
-  }, session.flattenedNotes.map((evt) => [
-    session.quarterNotesToSeconds(evt.time),
-    evt,
-  ]));
-
-  part.loop = true;
-  part.loopEnd = loopEndSeconds;
-  part.start(0);
-}
-
+// --- Initialize audio + scheduler ---
 async function initAudio() {
   await Tone.start();
   synth = new Tone.Synth().toDestination();
+
+  Tone.Transport.scheduleRepeat((time) => {
+    const evt = session.nextEvent();
+    if (!evt) return;
+
+    synth.triggerAttackRelease(
+      Tone.Frequency(evt.pitch, "midi"),
+      evt.duration,
+      time,
+      evt.velocity
+    );
+
+    playedEl.textContent = session.eventsPlayed;
+    positionEl.textContent = session.position;
+
+  }, "8n");
+
   Tone.Transport.start();
 
-  setStatus("ready");
+  console.log("🚀 Transport started");
+  statusEl.textContent = "ready";
+
+  // 🔥 VERY IMPORTANT: tell Observable the player is ready
   window.parent.postMessage({ type: "ready" }, "*");
 }
 
-function applyTempo(newTempo) {
-  session.tempo = newTempo;
-  Tone.Transport.bpm.value = newTempo;
-}
-
-function handleUpdate(pattern) {
-  session.setPattern(pattern);
-  applyTempo(session.tempo);
-  buildLoop();
-  setStatus("ready");
-  window.parent.postMessage({ type: "ready" }, "*");
-}
-
-function handleReset() {
-  session.reset();
-  if (part) {
-    part.stop(0);
-    part.start(0);
-  }
-}
-
-async function handleMessage(event) {
-  const { type } = event.data || {};
-
-  switch (type) {
-    case "update":
-      handleUpdate(event.data.pattern);
-      break;
-    case "start":
-    case "resume":
-      Tone.Transport.start();
-      setStatus("running");
-      break;
-    case "stop":
-      Tone.Transport.stop();
-      setStatus("stopped");
-      break;
-    case "reset":
-      handleReset();
-      setStatus("ready");
-      break;
-    case "setTempo":
-      if (typeof event.data.tempo === "number") {
-        applyTempo(event.data.tempo);
-        buildLoop();
-      }
-      break;
-    default:
-      break;
-  }
-}
-
+// Call at startup
 initAudio();
-window.addEventListener("message", handleMessage);
+
+// --- Listen for pattern updates ---
+window.addEventListener("message", (event) => {
+  if (event.data.type === "update") {
+    session.setPattern(event.data.pattern);
+  }
+});
