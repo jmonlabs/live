@@ -4,7 +4,7 @@ A minimal, standalone web-based audio player for JMON patterns that runs continu
 
 ## 🎯 Overview
 
-The JMON Live Player is designed to be embedded in Observable notebooks (or any web application) as an iframe. It uses Tone.js to create a persistent audio scheduler that plays JMON musical patterns continuously while seamlessly accepting pattern updates from the parent window.
+The JMON Live Player is designed to be embedded in interactive notebooks (Observable, Jupyter) or any web application as an iframe. It uses Tone.js to create a persistent audio scheduler that plays JMON musical patterns continuously while seamlessly accepting pattern updates from the parent window.
 
 **Key Features:**
 - ✨ Persistent audio playback (no restarts on updates)
@@ -12,7 +12,7 @@ The JMON Live Player is designed to be embedded in Observable notebooks (or any 
 - 🎵 Powered by Tone.js for precise audio scheduling
 - 📦 Standalone HTML/JS (no build step required)
 - 🎛 Minimal UI with real-time status display
-- 🌐 Observable-ready iframe integration
+- 🌐 Ready for Observable and Jupyter notebook integration
 
 ## 📁 Project Structure
 
@@ -267,6 +267,272 @@ viewof currentPattern = Inputs.radio(
 }
 ```
 
+## 📓 Jupyter Notebook Example
+
+The JMON Live Player works perfectly in Jupyter notebooks using IPython.display.
+
+### Basic Setup
+
+```python
+from IPython.display import IFrame, display, Javascript
+import json
+
+# Display the player iframe
+player_url = "https://your-username.github.io/jmon-live-player/index.html"
+display(IFrame(player_url, width=600, height=200))
+```
+
+### Helper Class for Pattern Updates
+
+```python
+class JMONPlayer:
+    """Helper class to send pattern updates to the JMON Live Player iframe"""
+
+    def __init__(self):
+        self.iframe_id = "jmonPlayer"
+
+    def update_pattern(self, pattern):
+        """Send a pattern update to the player"""
+        js_code = f"""
+        var iframe = document.querySelector('iframe[src*="jmon-live-player"]');
+        if (iframe && iframe.contentWindow) {{
+            iframe.contentWindow.postMessage({{
+                type: "update",
+                pattern: {json.dumps(pattern)}
+            }}, "*");
+            console.log("Pattern updated");
+        }} else {{
+            console.error("Player iframe not found");
+        }}
+        """
+        display(Javascript(js_code))
+
+    def start(self):
+        """Start playback"""
+        self._send_command("start")
+
+    def stop(self):
+        """Stop playback"""
+        self._send_command("stop")
+
+    def resume(self):
+        """Resume playback"""
+        self._send_command("resume")
+
+    def reset(self):
+        """Reset position"""
+        self._send_command("reset")
+
+    def set_tempo(self, tempo):
+        """Change tempo"""
+        js_code = f"""
+        var iframe = document.querySelector('iframe[src*="jmon-live-player"]');
+        if (iframe && iframe.contentWindow) {{
+            iframe.contentWindow.postMessage({{
+                type: "setTempo",
+                tempo: {tempo}
+            }}, "*");
+        }}
+        """
+        display(Javascript(js_code))
+
+    def _send_command(self, command_type):
+        """Send a simple command to the player"""
+        js_code = f"""
+        var iframe = document.querySelector('iframe[src*="jmon-live-player"]');
+        if (iframe && iframe.contentWindow) {{
+            iframe.contentWindow.postMessage({{
+                type: "{command_type}"
+            }}, "*");
+        }}
+        """
+        display(Javascript(js_code))
+
+# Initialize player
+player = JMONPlayer()
+```
+
+### Example Usage
+
+```python
+# Define patterns
+pattern1 = {
+    "tempo": 120,
+    "subdivision": 16,
+    "events": [
+        {"pitch": "C4", "duration": 0.2, "velocity": 0.7},
+        {"pitch": "E4", "duration": 0.2, "velocity": 0.8},
+        {"pitch": "G4", "duration": 0.2, "velocity": 0.6},
+        {"pitch": "C5", "duration": 0.4, "velocity": 0.9}
+    ]
+}
+
+pattern2 = {
+    "tempo": 140,
+    "subdivision": 16,
+    "events": [
+        {"pitch": ["C4", "E4", "G4"], "duration": 0.5, "velocity": 0.8},
+        {"pitch": ["D4", "F4", "A4"], "duration": 0.5, "velocity": 0.7}
+    ]
+}
+
+# Update to pattern 1
+player.update_pattern(pattern1)
+
+# Wait a bit, then switch to pattern 2
+import time
+time.sleep(5)
+player.update_pattern(pattern2)
+```
+
+### Interactive Example with ipywidgets
+
+```python
+import ipywidgets as widgets
+from IPython.display import display
+
+# Create interactive controls
+pattern_selector = widgets.Dropdown(
+    options=['Pattern 1', 'Pattern 2'],
+    value='Pattern 1',
+    description='Pattern:'
+)
+
+tempo_slider = widgets.IntSlider(
+    value=120,
+    min=60,
+    max=200,
+    step=10,
+    description='Tempo (BPM):',
+    style={'description_width': 'initial'}
+)
+
+def on_pattern_change(change):
+    if change['new'] == 'Pattern 1':
+        player.update_pattern(pattern1)
+    else:
+        player.update_pattern(pattern2)
+
+def on_tempo_change(change):
+    player.set_tempo(change['new'])
+
+pattern_selector.observe(on_pattern_change, names='value')
+tempo_slider.observe(on_tempo_change, names='value')
+
+# Display controls
+display(widgets.VBox([pattern_selector, tempo_slider]))
+```
+
+### Generative Pattern Example
+
+```python
+import random
+
+def generate_random_pattern(num_events=8, tempo=120):
+    """Generate a random JMON pattern"""
+    notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
+
+    events = []
+    for _ in range(num_events):
+        events.append({
+            "pitch": random.choice(notes),
+            "duration": random.choice([0.1, 0.2, 0.3, 0.4]),
+            "velocity": random.uniform(0.5, 1.0)
+        })
+
+    return {
+        "tempo": tempo,
+        "subdivision": 16,
+        "events": events
+    }
+
+# Generate and play random patterns
+for i in range(5):
+    print(f"Playing random pattern {i+1}")
+    random_pattern = generate_random_pattern()
+    player.update_pattern(random_pattern)
+    time.sleep(4)  # Wait 4 seconds before next pattern
+```
+
+### Algorithmic Composition Example
+
+```python
+def create_arpeggio(root_note="C4", pattern_type="major", tempo=120):
+    """Create an arpeggio pattern"""
+
+    # Define intervals for different chord types
+    intervals = {
+        "major": [0, 4, 7, 12],      # Root, major 3rd, 5th, octave
+        "minor": [0, 3, 7, 12],      # Root, minor 3rd, 5th, octave
+        "seventh": [0, 4, 7, 10],    # Root, major 3rd, 5th, minor 7th
+        "diminished": [0, 3, 6, 9]   # Root, minor 3rd, diminished 5th, dim 7th
+    }
+
+    # Convert root note to MIDI number
+    note_to_midi = {"C": 60, "D": 62, "E": 64, "F": 65, "G": 67, "A": 69, "B": 71}
+    octave = int(root_note[-1])
+    base_note = note_to_midi[root_note[0]]
+    root_midi = base_note + (octave - 4) * 12
+
+    # Create arpeggio events
+    events = []
+    for interval in intervals.get(pattern_type, intervals["major"]):
+        events.append({
+            "pitch": root_midi + interval,
+            "duration": 0.2,
+            "velocity": 0.8
+        })
+
+    return {
+        "tempo": tempo,
+        "subdivision": 16,
+        "events": events
+    }
+
+# Try different arpeggios
+player.update_pattern(create_arpeggio("C4", "major", 120))
+time.sleep(3)
+player.update_pattern(create_arpeggio("A3", "minor", 140))
+time.sleep(3)
+player.update_pattern(create_arpeggio("G4", "seventh", 100))
+```
+
+### Complete Jupyter Notebook Cell Layout
+
+```python
+# Cell 1: Imports
+from IPython.display import IFrame, display, Javascript
+import ipywidgets as widgets
+import json
+import time
+import random
+
+# Cell 2: Display Player
+player_url = "https://your-username.github.io/jmon-live-player/index.html"
+display(IFrame(player_url, width=600, height=200))
+
+# Cell 3: Helper Class (JMONPlayer code from above)
+class JMONPlayer:
+    # ... (full class definition)
+    pass
+
+player = JMONPlayer()
+
+# Cell 4: Define Patterns
+pattern1 = {...}
+pattern2 = {...}
+
+# Cell 5: Interactive Controls
+pattern_selector = widgets.Dropdown(...)
+tempo_slider = widgets.IntSlider(...)
+# ... (widget setup)
+
+display(widgets.VBox([pattern_selector, tempo_slider]))
+
+# Cell 6: Experiment!
+player.update_pattern(pattern1)
+```
+
 ## 🧪 Testing Locally
 
 1. Start a local server:
@@ -352,6 +618,9 @@ synth.connect(delay);
 
 - [Tone.js Documentation](https://tonejs.github.io/)
 - [Observable Documentation](https://observablehq.com/@observablehq/documentation)
+- [Jupyter Documentation](https://jupyter.org/documentation)
+- [IPython Display](https://ipython.readthedocs.io/en/stable/api/generated/IPython.display.html)
+- [ipywidgets](https://ipywidgets.readthedocs.io/)
 - [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
 - [PostMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
 
@@ -364,6 +633,7 @@ MIT License - Feel free to use and modify!
 Built with:
 - [Tone.js](https://tonejs.github.io/) - Web Audio framework
 - [Observable](https://observablehq.com/) - Reactive notebooks
+- [Jupyter](https://jupyter.org/) - Interactive computing notebooks
 - JMON - Musical notation system
 
 ---
