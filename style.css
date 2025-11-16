@@ -10,8 +10,8 @@
 
 body {
     font-family: 'Monaco', 'Courier New', monospace;
-    background: #0a0a0a;
-    color: #00ff00;
+    background: #3d4d42;
+    color: #c58971;
     padding: 20px;
     font-size: 14px;
 }
@@ -19,8 +19,8 @@ body {
 .container {
     max-width: 600px;
     margin: 0 auto;
-    background: #1a1a1a;
-    border: 2px solid #00ff00;
+    background: #2d3931;
+    border: 2px solid #c58971;
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
@@ -30,14 +30,14 @@ h1 {
     font-size: 24px;
     text-align: center;
     margin-bottom: 20px;
-    color: #00ff00;
+    color: #c58971;
     text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
     letter-spacing: 2px;
 }
 
 .status-panel {
-    background: #0a0a0a;
-    border: 1px solid #00ff00;
+    background: #2d3931;
+    border: 1px solid #c58971;
     border-radius: 4px;
     padding: 15px;
 }
@@ -54,12 +54,12 @@ h1 {
 }
 
 .label {
-    color: #00aa00;
+    color: #2d3931;
     font-weight: bold;
 }
 
 .value {
-    color: #00ff00;
+    color: #c58971;
     font-family: 'Monaco', 'Courier New', monospace;
 }
 
