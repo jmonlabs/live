@@ -10,28 +10,28 @@
 
 body {
     font-family: 'Monaco', 'Courier New', monospace;
-    background: #3d4d42;
-    color: #c58971;
-    padding: 20px;
-    font-size: 14px;
+    background: #2d3931;
+    color: #c5b2ab;
+    padding: 16px;
+    font-size: 12px;
 }
 
 .container {
-    max-width: 600px;
+    max-width: 500px;
     margin: 0 auto;
-    background: #2d3931;
-    border: 2px solid #c58971;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+    background: #3d4d42;
+    border: 2px solid #2d3931;
+    border-radius: 6px;
+    padding: 16px;
+    box-shadow: 0 0 20px rgba(45, 57, 49, 0.3);
 }
 
 h1 {
-    font-size: 24px;
+    font-size: 18px;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     color: #c58971;
-    text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    text-shadow: 0 0 10px rgba(45, 57, 49, 0.5);
     letter-spacing: 2px;
 }
 
