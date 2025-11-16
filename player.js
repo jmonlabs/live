@@ -35,25 +35,53 @@ async function initializePlayer() {
         }
     }).toDestination();
 
-    // Create persistent loop
-    // This loop runs continuously and calls session.next() to get events
-    loop = new Tone.Loop((time) => {
-        const event = session.next(time);
-
-        if (event) {
-            playEvent(event, time);
-        }
-    }, "16n"); // Default to 16th note subdivision
-
     // Start Tone.Transport (persistent scheduler)
     await Tone.start();
     Tone.Transport.start();
-    loop.start(0);
 
     isInitialized = true;
     updateStatus('ready');
 
     console.log('JMON Live Player initialized and running');
+}
+
+/**
+ * Schedule all events from the current pattern
+ * Clears previous schedule and reschedules all notes
+ */
+function schedulePattern() {
+    if (!session || !session.flattenedNotes || session.flattenedNotes.length === 0) {
+        console.log('[JMON Player] No pattern to schedule');
+        return;
+    }
+
+    // Clear all previously scheduled events on the Transport
+    Tone.Transport.cancel();
+
+    const notes = session.flattenedNotes;
+    const patternDuration = session.quarterNotesToSeconds(session.loopDuration);
+
+    console.log('[JMON Player] Scheduling', notes.length, 'notes, loop duration:', session.loopDuration, 'quarter notes');
+
+    // Schedule each note
+    notes.forEach((note, index) => {
+        const noteTime = session.quarterNotesToSeconds(note.time);
+
+        // Schedule the note
+        Tone.Transport.schedule((time) => {
+            playEvent(note, time);
+            session.eventsPlayed++;
+            session.updateUI();
+        }, noteTime);
+    });
+
+    // Schedule the pattern to loop by rescheduling after it completes
+    if (patternDuration > 0) {
+        Tone.Transport.schedule(() => {
+            console.log('[JMON Player] Pattern loop - rescheduling');
+            schedulePattern();
+        }, patternDuration);
+    }
 }
 
 /**
@@ -168,9 +196,12 @@ window.addEventListener('message', async (event) => {
                     Tone.Transport.bpm.value = event.data.pattern.tempo;
                 }
 
+                // Schedule the new pattern
+                schedulePattern();
+
                 updateStatus('running');
                 console.log('[JMON Player] UPDATE: Pattern updated successfully');
-                console.log('[JMON Player] UPDATE: Pattern length:', session.events.length, 'events');
+                console.log('[JMON Player] UPDATE: Pattern length:', session.flattenedNotes.length, 'events');
             } else {
                 console.warn('[JMON Player] UPDATE: Cannot set pattern - session:', session ? 'exists' : 'null', 'pattern:', event.data.pattern ? 'exists' : 'missing');
             }
@@ -278,17 +309,19 @@ window.addEventListener('load', async () => {
     if (stopBtn) {
         stopBtn.addEventListener('click', () => {
             console.log('[JMON Player] Stop button clicked');
-            if (loop) {
-                loop.stop();
-            }
-            if (Tone.Transport.state === 'started') {
-                Tone.Transport.stop();
-            }
+
+            // Cancel all scheduled events
+            Tone.Transport.cancel();
+
+            // Reset transport position but keep it running
+            Tone.Transport.position = 0;
+
             if (session) {
                 session.reset();
             }
+
             updateStatus('stopped');
-            console.log('[JMON Player] Playback stopped');
+            console.log('[JMON Player] Playback stopped and cleared');
         });
     }
 
@@ -316,6 +349,9 @@ document.addEventListener('click', async () => {
                 Tone.Transport.bpm.value = pendingPattern.tempo;
             }
 
+            // Schedule the pattern
+            schedulePattern();
+
             updateStatus('running');
             console.log('[JMON Player] Pending pattern applied, playback started');
             pendingPattern = null;
@@ -328,11 +364,11 @@ if (typeof window !== 'undefined') {
     window.jmonPlayer = {
         session,
         synth,
-        loop,
         isInitialized,
         messageCount,
         initializePlayer,
         playEvent,
+        schedulePattern,
         updateStatus,
         test: window.testJMONPlayer
     };
