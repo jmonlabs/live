@@ -273,6 +273,25 @@ window.addEventListener('load', async () => {
         window.parent.postMessage({ type: 'ready', source: 'jmon-player' }, '*');
     }
 
+    // Wire up stop button
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.addEventListener('click', () => {
+            console.log('[JMON Player] Stop button clicked');
+            if (loop) {
+                loop.stop();
+            }
+            if (Tone.Transport.state === 'started') {
+                Tone.Transport.stop();
+            }
+            if (session) {
+                session.reset();
+            }
+            updateStatus('stopped');
+            console.log('[JMON Player] Playback stopped');
+        });
+    }
+
     // Optionally auto-initialize (or wait for first message)
     // Uncomment the following line to auto-start:
     // await initializePlayer();
